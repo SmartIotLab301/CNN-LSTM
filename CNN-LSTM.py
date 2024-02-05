@@ -1,15 +1,29 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Feb  6 00:35:18 2024
+
+@author: user
+"""
+
 import glob
+import os
 import pandas as pd
-
 import tensorflow as tf
-
-
 import numpy as np
 from tensorflow.keras import backend as K
-
-
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+import tensorflow.keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dropout, MaxPooling1D, Dense, Conv1D, Flatten, GRU, LSTM, GlobalAveragePooling1D, BatchNormalization,Bidirectional
+from tensorflow.keras import Model, Input, regularizers
+from tensorflow.keras.callbacks import LearningRateScheduler, Callback, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
+from tensorflow.keras.optimizers import Adam
+import itertools
+from sklearn import metrics
+from sklearn.metrics import precision_recall_curve, auc, confusion_matrix, classification_report
 
 def inter(data,o_x,n_x):
     xp = np.arange(0, len(data),o_x/n_x)
@@ -18,8 +32,6 @@ def inter(data,o_x,n_x):
     return XXX(xp)
 
 name1 = '西南沿海'
-
-
 name = name1
 db ='西南'
 Hz_list = '0Hz'
@@ -37,48 +49,28 @@ y = []
 X1 = []
 
 for i in range(DATA.shape[0]):
-
     XX1.append(np.real(DATA[i][1]))
     y.append(DATA[i][2])
 XX1 = np.array(XX1)
 y = np.array(y)
 
 XX=[]
-# =============================================================================
-# ###########欠採樣、重採樣
-# for i in range(len(XX1)):
-#     XX2 = inter(XX1[i],len(XX1[i]),len(XX1[i])*0.9)
-#     Xa = inter(XX2,len(XX1[i])*0.9,len(XX1[i])+1)  
-#     XX.append(Xa[:len(XX1[i])])
-# =============================================================================
 XX = np.array(XX1)   
 XX = XX[:,:500000]
 
 X = np.reshape(XX,(-1,500,1))
-
 y = np.reshape(y,(-1,1))
-
-# =============================================================================
-# y1 = []
-# for i in range(len(y)):
-#     y1.append(y[i][0])
-# y1= np.array(y1)
-# =============================================================================
 print(X.shape)
-
 print(y.shape)
-# =============================================================================
 
-import os
 path = 'C:/Users/user/Desktop/'+name
-#path = 'F:/水下通訊/驗證結果/9_結果/'
 
 file_name = 'CNN_LSTM'
 model_name = file_name
 if not os.path.isdir(path + file_name):
     os.makedirs(path + file_name)    
 
-from sklearn.model_selection import train_test_split
+
 X_train, X_test1, y_train, y_test1 = train_test_split(X, y, test_size=0.2, random_state=5, stratify = y)
 X_test, X_val, y_test, y_val = train_test_split(X_test1, y_test1, test_size=0.5, random_state=5, stratify = y_test1)
 print(len(y_train))
@@ -88,7 +80,6 @@ print(list(y_test).count(0), list(y_test).count(1))
 print(len(y_val))
 print(list(y_val).count(0), list(y_val).count(1))
 
-from sklearn.preprocessing import StandardScaler
 Scaler = StandardScaler()
 X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1]*X_train.shape[2]))
 X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1]*X_test.shape[2]))
@@ -110,16 +101,8 @@ y_test.shape
 y_train.shape
 y_val.shape
 
-
-
-
 step_num = 70
 
-import tensorflow.keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dropout, MaxPooling1D, Dense, Conv1D, Flatten, GRU, LSTM, GlobalAveragePooling1D, BatchNormalization,Bidirectional
-from tensorflow.keras import Model, Input
-from tensorflow.keras import regularizers
 inputs = Input(shape = (X.shape[1], X.shape[2]))
 layer = Conv1D(32, 3, padding = 'same', activation='relu', kernel_regularizer=regularizers.l2(0.01))(inputs)
 layer = BatchNormalization()(layer)
@@ -127,22 +110,10 @@ layer = Dropout(0.5)(layer)
 layer = Conv1D(64, 3, padding = 'same', activation='relu', kernel_regularizer=regularizers.l2(0.01))(layer)
 layer = BatchNormalization()(layer)
 layer = Dropout(0.5)(layer)
-# =============================================================================
-# layer = Bidirectional(LSTM(128, return_sequences = True, dropout = 0.5, kernel_regularizer=regularizers.l2(0.01)))(inputs)
-# layer = BatchNormalization()(layer)
-# layer = Bidirectional(LSTM(256, dropout = 0.5, kernel_regularizer=regularizers.l2(0.01)))(layer)
-# layer = BatchNormalization()(layer)
-# =============================================================================
 layer = LSTM(128, return_sequences = True, dropout = 0.5, kernel_regularizer=regularizers.l2(0.01))(layer)
 layer = BatchNormalization()(layer)
 layer = LSTM(256, dropout = 0.5, kernel_regularizer=regularizers.l2(0.01))(layer)
 layer = BatchNormalization()(layer)
-
-
-# =============================================================================
-# layer = Dense(512, activation = 'sigmoid', kernel_regularizer=regularizers.l2(0.01))(layer)
-# layer = Dense(256, activation = 'sigmoid', kernel_regularizer=regularizers.l2(0.01))(layer)
-# =============================================================================
 output = Dense(1, activation = 'sigmoid', kernel_regularizer=regularizers.l2(0.01))(layer)
 model = Model(inputs, output)
 model.summary()
@@ -161,11 +132,8 @@ def binary_focal_loss_fixed(y_true, y_pred):
     focal_loss = - alpha_t * K.pow((K.ones_like(y_true)-p_t),gamma) * K.log(p_t)
     return K.mean(focal_loss)
 
-from sklearn import metrics
-from tensorflow.keras.callbacks import LearningRateScheduler
-from tensorflow.keras.callbacks import Callback
 count = 0
-# temp_count = 0
+
 class auroc(Callback):
     def __init__(self, monitor = 'val_loss'):
         super(Callback, self).__init__()
@@ -192,26 +160,14 @@ class auroc(Callback):
             print('ok')
             self.model.stop_training = True
 
-from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.callbacks import ReduceLROnPlateau
-from tensorflow.keras.callbacks import EarlyStopping
-
-from sklearn.metrics import auc
-
 reduce_lr = ReduceLROnPlateau(monitor = 'val_loss', factor = 0.2, patience = 50, min_lr = 0.0000001, verbose = 1)
 
-from tensorflow.keras.optimizers import Adam
 opt = Adam(learning_rate = 0.00001)
-# binary_crossentropy
-# binary_focal_loss_fixed
 model.compile(loss = binary_focal_loss_fixed, optimizer = opt, metrics = ['accuracy'])
 history = model.fit(X_train, y_train, batch_size = 128, epochs = 1000, validation_data = (X_val, y_val), shuffle = True, callbacks = [reduce_lr, auroc(monitor = 'val_loss')])
 
-
 model.save(path + file_name + '/' + model_name + '_last.h5')
 
-
-import matplotlib.pyplot as plt
 plt.title('Training and Validation Accuracy')
 plt.plot(history.history['accuracy'])
 plt.plot(history.history['val_accuracy'], '--', color='orange')
@@ -241,9 +197,6 @@ for i in range(len(model_predict)):
     else:
         y_pred.append(0)
 
-
-import matplotlib.pyplot as plt
-import itertools
 vegetables = ["0", "1"]
 farmers = ["0", "1"]
 data = np.array(pd.crosstab(y_test[:,0], np.array(y_pred), rownames=['Actual'], colnames=['Prediction']))
@@ -264,16 +217,8 @@ fig.tight_layout()
 plt.savefig(path + file_name + '/' + model_name + '_混淆矩陣_last.tif' ,dpi = 300)
 plt.show()
 
-
-
-
-
-
-
-
-from sklearn import metrics
 fpr, tpr, thresholds = metrics.roc_curve(y_test, model.predict(X_test).ravel())
-from sklearn.metrics import auc
+
 auc = auc(fpr, tpr)
 print("AUC : ", auc)
 plt.figure()
@@ -286,10 +231,8 @@ plt.legend(loc='best')
 plt.savefig(path + file_name + '/' + model_name + '_AUROC_last.tif' ,dpi = 300)
 plt.show()    
 
-from sklearn.metrics import precision_recall_curve
 precision, recall, thresholds = precision_recall_curve(y_test, model.predict(X_test).ravel())
-# precision, recall, thresholds = precision_recall_curve(y_test, model.predict([X_test, X_test_statstics]).ravel())
-from sklearn.metrics import auc
+
 auc = auc(recall, precision)
 print("AUC : ", auc)
 plt.figure()
@@ -302,11 +245,9 @@ plt.legend(loc='best')
 plt.savefig(path + file_name + '/' + model_name + '_AUPRC_last.tif' ,dpi = 300)
 plt.show()    
 
-from sklearn.metrics import confusion_matrix
 tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
 print(f'True Positives: {tp}')
 print(f'False Positives: {fp}')
 print(f'True Negatives: {tn}')
 print(f'False Negatives: {fn}')
-from sklearn.metrics import classification_report
 print(classification_report(y_test, y_pred))
